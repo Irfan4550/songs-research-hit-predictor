@@ -5,7 +5,7 @@ This data science project investigates the measurable characteristics that disti
 
 By leveraging audio feature data from Spotify (e.g., Danceability, Energy, Valence), this analysis moves beyond subjective music taste to establish a data-driven formula for pop music success.
 
-## 🔑 Key Findings & Results
+##  Key Findings & Results
 
 1.  **The "Upbeat Formula" Works:** We found that **Danceability, Energy, and Valence (positivity)** are overwhelmingly the strongest predictors of a song achieving "Super-Hit" status.
 The model confirmed that increasing any of these features significantly increases a song's odds of classification as a Super-Hit.
@@ -16,7 +16,7 @@ on unseen test data, successfully classifying which songs would be Super-Hits.
 3.  **Pop Music is Changing:** Trend analysis revealed a clear, continuous upward trajectory in the average **Danceability** and **Energy** of top songs over the last several decades
 suggesting modern pop music is evolving toward tracks designed for high-energy consumption and dance/social media trends (like TikTok).
 
-## 📊 Methodology
+##  Methodology
 
 The project followed a standard data science workflow:
 
@@ -25,7 +25,7 @@ The project followed a standard data science workflow:
 * **Exploratory Analysis (EDA):** Used density plots and t-tests to confirm statistically significant differences in audio feature distributions between the two classes.
 * **Modeling:** Built a **Logistic Regression** classifier, evaluated coefficients via **Odds Ratios** for interpretability, and tested performance using a **Confusion Matrix**.
 
-## 📁 Repository Contents
+## Repository Contents
 
 | File/Folder | Description |
 | :--- | :--- |
