@@ -1,4 +1,4 @@
-# 📈 What Differentiates a Hit Song from a Super-Hit?
+#  What Differentiates a Hit Song from a Super-Hit?
 
 ## Project Overview
 This data science project investigates the measurable characteristics that distinguish a hugely successful "Super-Hit" song from a regular charting hit on the Billboard Top 100.
