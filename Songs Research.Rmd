@@ -1,0 +1,222 @@
+
+---
+title: "What Differentiates a Hit Song from a Super-Hit?"
+author: "Irfan Shaik"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+---
+
+<br>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## 1. Introduction and Research Question
+
+This analysis explores the audio features of songs from the Billboard Top 100 to understand what makes a song a "Super-Hit." The music industry often relies on intuition but can data  reveal any underlying statistical patterns in song characteristics which actually make a song super hit?
+
+**Research Question:** Can we identify specific measurable audio features that distinguish a "Super-Hit" from a regular song? 
+
+**Why only these variables?** Previous academic studies (e.g., Herremans & Chew, 2017) and data science projects have consistently found that features like **danceability, energy, and valence** are strong indicators of a song's popularity and chart success. This analysis builds on that foundation by modeling how these and other audio features correlate with a song's hit potential.
+
+**About the Dataset:** The data combines song information from the Billboard Top 100 charts with audio feature data from Spotify. Each row represents a song and includes attributes like its chart position, year and a set of audio features calculated by Spotify's algorithms.
+
+## 2. Setup and Data Loading
+
+First, we will load the necessary R packages for data manipulation, visualization and modeling.
+
+```{r load-packages, message=FALSE, warning=FALSE}
+library(tidyverse)      # Data manipulation & plotting
+library(janitor)        # Clean column names
+library(skimr)          # Quick data summary
+library(ggthemes)       # FiveThirtyEight theme for plots
+library(broom)          # Clean regression outputs
+library(rsample)        # Train/test split
+```
+
+Next, we load the dataset and use `clean_names()` to standardize(consistent format) column names for easier use.
+
+```{r load-data}
+songs <- read.csv("billboard_top_100_final.csv") %>% 
+  clean_names()
+```
+
+A quick glimpse at the data structure helps us understand the variables we are working with.
+
+```{r glimpse-data}
+glimpse(songs)
+```
+
+## 3. Defining the Target Variable: "Super-Hit"
+
+To perform a classification analysis, we need a target variable. I've created a binary category called `hit_class`. Based on the idea that highly danceable, energetic and positive songs are often the biggest hits. a "Super-Hit" is defined as any song where the sum of `danceability`, `energy`, and `valence` is greater than 2. All other songs are classified as "Regular Hits."
+further more converting it as factor for better handling of categorical data
+
+```{r create-target-variable}
+songs <- songs %>%
+  mutate(
+    hit_class = ifelse(danceability + energy + valence > 2, "Super-Hit", "Regular Hit"),
+    hit_class = factor(hit_class, levels = c("Regular Hit", "Super-Hit"))
+  )
+
+# Let's see the distribution of our new variable
+table(songs$hit_class)
+```
+
+## 4. Exploratory Data Analysis (EDA)
+
+### Visualizing Audio Feature Distributions
+
+To see how the audio features differ between "Regular Hits" and "Super-Hits," we can plot their distributions. The plots below show that "Super-Hits" tend to have higher average values for **danceability, energy, and valence** which aligns with our initial hypothesis.
+
+```{r plot-distributions, fig.width=12, fig.height=8}
+features <- c("danceability", "energy", "loudness", "speechiness",
+              "acousticness", "duration_ms", "liveness", "valence", "tempo")
+
+songs_long <- songs %>%
+  pivot_longer(cols = all_of(features), names_to = "feature", values_to = "value")
+
+ggplot(songs_long, aes(x = value, fill = hit_class)) +
+  geom_density(alpha = 0.4) +
+  facet_wrap(~feature, scales = "free") +
+  labs(
+    title = "Super-Hits vs Regular Hits: Audio Feature Distributions",
+    subtitle = "Density plots show the distribution of each audio feature for the two hit classes.",
+    fill = "Hit Class"
+  ) +
+  theme_fivethirtyeight() +
+  scale_fill_manual(values = c("Regular Hit" = "#30a2da", "Super-Hit" = "#fc4f30"))
+```
+
+### Statistical Significance Testing
+
+Are the visual differences statistically significant?
+We will run a t-test for each feature to compare the means between the two groups. A p-value less than 0.05 suggests a significant difference.
+
+```{r t-tests}
+t_test_results <- map_df(features, function(feat) {
+  t_out <- t.test(songs[[feat]] ~ songs$hit_class)
+  tibble(
+    feature = feat,
+    mean_superhit = mean(songs %>% filter(hit_class == "Super-Hit") %>% pull(.data[[feat]]), na.rm = TRUE),
+    mean_regular = mean(songs %>% filter(hit_class == "Regular Hit") %>% pull(.data[[feat]]), na.rm = TRUE),
+    p_value = t_out$p.value
+  )
+}) %>%
+  mutate(
+    significance = ifelse(p_value < 0.05, "Significant", "Not Significant")
+  )
+
+print(t_test_results)
+```
+The results confirm that features like **danceability, energy, loudness, valence and acousticness** show statistically significant differences between our two classes.
+
+## 5. Predictive Modeling: Logistic Regression
+
+Now, let's build a model to predict whether a song will be a "Super-Hit" based on its audio features. A logistic regression model is a great choice for this binary classification task.
+
+### Train/Test Split
+
+First, we split the data into a training set (70%) and  testing set (30%) to ensure our model's performance is evaluated on unseen data.
+
+```{r train-test-split}
+set.seed(123) # for reproducibility
+split <- initial_split(songs, prop = 0.7, strata = hit_class)
+train_data <- training(split)
+test_data  <- testing(split)
+```
+
+### Building and Summarizing the Model
+
+We'll use the features that appeared most significant in our EDA.
+
+```{r build-model}
+model <- glm(hit_class ~ danceability + energy + loudness + valence + tempo,
+             data = train_data, family = binomial)
+
+summary(model)
+```
+
+### Interpreting Model Coefficients with Odds Ratios
+
+To make the model's coefficients more interpretable, we convert them to odds ratios. An odds ratio greater than 1 indicates that an increase in that feature increases the odds of a song being a "Super-Hit."
+
+```{r plot-odds-ratios, fig.width=10, fig.height=6}
+coef_df <- tidy(model, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(term != "(Intercept)")
+
+ggplot(coef_df, aes(x = reorder(term, estimate), y = estimate)) +
+  geom_point(size = 3, color = "#fc4f30") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  coord_flip() +
+  labs(
+    title = "Odds Ratios for Super-Hit Prediction",
+    subtitle = "Features with odds ratios > 1 increase the likelihood of being a Super-Hit",
+    y = "Odds Ratio", x = "Feature"
+  ) +
+  theme_fivethirtyeight()
+```
+As expected **danceability, energy, and valence** are strong positive predictors.
+
+### Model Evaluation
+
+Finally, we evaluate the model's performance on the test data using a confusion matrix and calculating its accuracy.
+
+```{r evaluate-model}
+test_data <- test_data %>%
+  mutate(
+    pred_prob = predict(model, newdata = test_data, type = "response"),
+    pred_class = ifelse(pred_prob > 0.5, "Super-Hit", "Regular Hit")
+  )
+
+# Confusion Matrix
+cat("Confusion Matrix:\n")
+table(Predicted = test_data$pred_class, Actual = test_data$hit_class)
+
+# Accuracy
+accuracy <- mean(test_data$pred_class == test_data$hit_class)
+cat("\nModel Accuracy:", round(accuracy, 3), "\n")
+```
+
+The model performs well, correctly classifying a high percentage of songs on the unseen test data.
+
+## 6. Trend Analysis Over Time
+
+Have the characteristics of hit songs changed over the years? Let's plot the average `danceability`, `energy` and `valence` for top songs by year.
+
+```{r plot-trends, fig.width=10, fig.height=6}
+songs %>%
+  group_by(year) %>%
+  summarise(
+    avg_dance = mean(danceability, na.rm = TRUE),
+    avg_energy = mean(energy, na.rm = TRUE),
+    avg_valence = mean(valence, na.rm = TRUE)
+  ) %>%
+  ggplot(aes(x = year)) +
+  geom_line(aes(y = avg_dance, color = "Danceability")) +
+  geom_line(aes(y = avg_energy, color = "Energy")) +
+  geom_line(aes(y = avg_valence, color = "Valence")) +
+  labs(
+    title = "Trends in Hit Song Audio Features Over Time",
+    subtitle = "Modern pop music appears more danceable and energetic.",
+    y = "Average Feature Value (0-1)", x = "Year", color = "Feature"
+  ) +
+  theme_fivethirtyeight()
+```
+The plot shows a clear upward trend in the average danceability and energy of hit songs over the last several decades.
+
+## 7. Conclusion
+
+This analysis confirms that audio features provide significant insight into what makes a song a commercial success.
+
+* **Key Differentiators:** Super-Hits are statistically more likely to have higher **danceability, energy, and valence**.
+* **Predictive Power:** A logistic regression model can predict a song's "Super-Hit" status with high accuracy based on these features.
+* **Historical Trends:** Hit songs have become progressively more danceable and energetic over time, reflecting changes in music production and consumer tastes, likely influenced by social media trends (e.g., TikTok dances).
+
+In conclusion, while musical taste is subjective, the data shows that a quantifiable formula for a hit song—one that is upbeat, positive, and easy to dance to—is a powerful force in the music industry.
