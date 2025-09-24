@@ -31,7 +31,7 @@ The project followed a standard data science workflow:
 | :--- | :--- |
 | `data/billboard_top_100_final.csv` | The raw dataset used for the analysis. |
 | `code/songs_research.R` | The clean R script that performs the full analysis and generates the report. |
-| `results/songs-research.html` | **The final, self-contained R Markdown report.** View this for the full narrative, plots, and statistical results. |
+| `results/songs-research.html` | **The final, self-contained R Markdown report.** View this for the full narrative, plots and statistical results. |
 | `LICENSE` | MIT License for open-source sharing. |
 
 ## License
